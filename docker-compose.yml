@@ -1,0 +1,41 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - tally-data:/data
+    environment:
+      - TALLY_DB_PATH=/data/tally.db
+    restart: unless-stopped
+
+  sonarqube:
+    image: sonarqube:community
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+
+  sonar-scanner:
+    image: sonarsource/sonar-scanner-cli
+    profiles:
+      - scanner
+    depends_on:
+      - sonarqube
+    volumes:
+      - .:/usr/src
+    working_dir: /usr/src
+    command: >
+      sonar-scanner
+      -Dsonar.host.url=http://sonarqube:9000
+      -Dsonar.projectKey=tally
+
+volumes:
+  tally-data:
+  sonarqube_data:
+  sonarqube_logs:
+  sonarqube_extensions:

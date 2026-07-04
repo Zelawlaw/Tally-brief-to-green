@@ -1,0 +1,4 @@
+tally
+coverage.out
+*.db
+.scannerwork/
