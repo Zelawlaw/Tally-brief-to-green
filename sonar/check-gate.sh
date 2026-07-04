@@ -3,13 +3,25 @@ set -euo pipefail
 
 HOST="${1:-http://localhost:9000}"
 PROJECT="${2:-tally}"
-AUTH="admin:admin"
 MAX_RETRIES=60
 SLEEP=3
 
+AUTH_HEADER=""
+if [ -n "${SONAR_TOKEN:-}" ]; then
+  AUTH_HEADER="Authorization: Bearer $SONAR_TOKEN"
+elif [ -n "${SONAR_USER:-}" ]; then
+  AUTH_HEADER="-u ${SONAR_USER}:${SONAR_PASS:-admin}"
+else
+  AUTH_HEADER="-u admin:admin"
+fi
+
 echo "Polling SonarQube quality gate for project '$PROJECT' ..."
 for i in $(seq 1 "$MAX_RETRIES"); do
-  RESP=$(curl -s -u "$AUTH" "$HOST/api/qualitygates/project_status?projectKey=$PROJECT")
+  if [ -n "${SONAR_TOKEN:-}" ]; then
+    RESP=$(curl -s -H "$AUTH_HEADER" "$HOST/api/qualitygates/project_status?projectKey=$PROJECT")
+  else
+    RESP=$(curl -s $AUTH_HEADER "$HOST/api/qualitygates/project_status?projectKey=$PROJECT")
+  fi
   STATUS=$(echo "$RESP" | jq -r '.projectStatus.status // "NONE"')
 
   echo "  [$i/$MAX_RETRIES] status=$STATUS"
@@ -21,7 +33,6 @@ for i in $(seq 1 "$MAX_RETRIES"); do
   elif [ "$STATUS" = "ERROR" ]; then
     echo ""
     echo "=== Quality Gate FAILED ==="
-    echo "Failing conditions:"
     echo "$RESP" | jq -r '.projectStatus.conditions[]? | select(.status=="ERROR") | "  \(.metricKey): actual=\(.actualValue) threshold=\(.errorThreshold)"'
     exit 1
   elif [ "$STATUS" = "NONE" ]; then

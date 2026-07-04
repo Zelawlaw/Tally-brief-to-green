@@ -4,8 +4,7 @@ APP_BIN := tally
 COVERAGE_OUT := coverage.out
 SONAR_HOST ?= http://localhost:9000
 SONAR_PROJECT ?= tally
-SONAR_USER ?= admin
-SONAR_PASS ?= admin
+SONAR_TOKEN ?=
 TALLY_URL ?= http://localhost:8080
 
 build:
@@ -24,7 +23,8 @@ lint:
 
 sonar: unit
 	@curl -s -o /dev/null $(SONAR_HOST)/api/system/status || (docker compose up -d sonarqube && ./sonar/wait-for-sonar.sh $(SONAR_HOST) && ./sonar/bootstrap.sh $(SONAR_HOST) $(SONAR_PROJECT))
-	sonar-scanner -Dsonar.host.url=$(SONAR_HOST) -Dsonar.projectKey=$(SONAR_PROJECT) -Dsonar.login=$(SONAR_USER) -Dsonar.password=$(SONAR_PASS)
+	@if [ -z "$(SONAR_TOKEN)" ]; then echo "Set SONAR_TOKEN (see README troubleshooting)"; exit 1; fi
+	sonar-scanner -Dsonar.host.url=$(SONAR_HOST) -Dsonar.projectKey=$(SONAR_PROJECT) -Dsonar.token=$(SONAR_TOKEN)
 	@echo "Polling SonarQube quality gate for project '$(SONAR_PROJECT)'..."
 	@./sonar/check-gate.sh $(SONAR_HOST) $(SONAR_PROJECT)
 

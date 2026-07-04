@@ -3,7 +3,7 @@ set -euo pipefail
 
 HOST="${1:-http://localhost:9000}"
 PROJECT="${2:-tally}"
-AUTH="admin:admin"
+AUTH="${3:-admin:admin}"
 GATE_NAME="Standard Gate"
 
 echo "Bootstrapping SonarQube at $HOST ..."
@@ -20,7 +20,6 @@ else
     -d "name=$GATE_NAME" | jq -r '.id')
   echo "Quality gate created (id=$GATE_ID)."
 
-  # Add conditions
   curl -s -u "$AUTH" -X POST "$HOST/api/qualitygates/create_condition" \
     -d "gateId=$GATE_ID" -d "metric=coverage" -d "op=LT" -d "error=100" > /dev/null
   echo "  + coverage < 100% = ERROR"
@@ -44,12 +43,29 @@ else
   curl -s -u "$AUTH" -X POST "$HOST/api/qualitygates/create_condition" \
     -d "gateId=$GATE_ID" -d "metric=security_hotspots_reviewed" -d "op=LT" -d "error=100" > /dev/null
   echo "  + security_hotspots_reviewed < 100% = ERROR"
+
+  curl -s -u "$AUTH" -X POST "$HOST/api/qualitygates/create_condition" \
+    -d "gateId=$GATE_ID" -d "metric=sqale_rating" -d "op=GT" -d "error=1" > /dev/null
+  echo "  + maintainability_rating > A = ERROR"
+
+  curl -s -u "$AUTH" -X POST "$HOST/api/qualitygates/create_condition" \
+    -d "gateId=$GATE_ID" -d "metric=security_rating" -d "op=GT" -d "error=1" > /dev/null
+  echo "  + security_rating > A = ERROR"
+
+  curl -s -u "$AUTH" -X POST "$HOST/api/qualitygates/create_condition" \
+    -d "gateId=$GATE_ID" -d "metric=reliability_rating" -d "op=GT" -d "error=1" > /dev/null
+  echo "  + reliability_rating > A = ERROR"
 fi
 
 # Set as default
 curl -s -u "$AUTH" -X POST "$HOST/api/qualitygates/set_as_default" \
-  -d "id=$GATE_ID" > /dev/null
+  -d "gateName=$GATE_NAME" > /dev/null
 echo "Set as default quality gate."
+
+# Associate with project
+curl -s -u "$AUTH" -X POST "$HOST/api/qualitygates/select" \
+  -d "gateName=$GATE_NAME&projectKey=$PROJECT" > /dev/null
+echo "Associated with project '$PROJECT'."
 
 # Create project if it doesn't exist
 PROJ_EXISTS=$(curl -s -u "$AUTH" "$HOST/api/projects/search?projects=$PROJECT" | jq -r '.components | length')
@@ -61,4 +77,19 @@ else
   echo "Project '$PROJECT' already exists."
 fi
 
+# Generate a CI token for the scanner
+TOKEN=$(curl -s -u "$AUTH" -X POST "$HOST/api/user_tokens/generate" \
+  -d "name=tally-ci" | jq -r '.token // empty')
+if [ -n "$TOKEN" ]; then
+  echo ""
+  echo "=== Tally CI token (set this in your environment) ==="
+  echo "export SONAR_TOKEN=$TOKEN"
+else
+  echo ""
+  echo "NOTE: Could not auto-generate token (password may have been changed)."
+  echo "Generate one manually at $HOST (My Account → Security → Generate Token)"
+  echo "Then set: export SONAR_TOKEN=<token>"
+fi
+
+echo ""
 echo "Bootstrap complete."
