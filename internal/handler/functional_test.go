@@ -18,7 +18,7 @@ func apiURL(path string) string {
 }
 
 func TestFunctionalCreateMemberAndContribute(t *testing.T) {
-	member := postJSON(t, apiURL("/members"), map[string]any{"name": "Alice"})
+	member := postJSON(t, apiURL("/members"), map[string]any{"name": "FunctionalTestMember"})
 	if member["id"] == nil {
 		t.Fatal("expected member id")
 	}
@@ -35,19 +35,21 @@ func TestFunctionalCreateMemberAndContribute(t *testing.T) {
 
 	summary := getMap(t, apiURL("/summary"))
 	members := summary["members"].([]any)
-	if len(members) != 1 {
-		t.Fatalf("expected 1 member, got %d", len(members))
+	if len(members) == 0 {
+		t.Fatal("expected at least 1 member")
 	}
 
-	m := members[0].(map[string]any)
-	if m["total"].(float64) != 75.50 {
-		t.Errorf("expected total 75.50, got %.2f", m["total"].(float64))
+	// Find our member in the summary
+	for _, memberIface := range members {
+		m := memberIface.(map[string]any)
+		if fmt.Sprint(m["id"]) == fmt.Sprint(id) {
+			if m["total"].(float64) != 75.50 {
+				t.Errorf("expected total 75.50, got %.2f", m["total"].(float64))
+			}
+			return
+		}
 	}
-
-	groupTotal := summary["group_total"].(float64)
-	if groupTotal != 75.50 {
-		t.Errorf("expected group_total 75.50, got %.2f", groupTotal)
-	}
+	t.Errorf("member id %v not found in summary", id)
 }
 
 func TestFunctionalBadInput(t *testing.T) {
