@@ -6,6 +6,7 @@ SONAR_HOST := http://localhost:9000
 SONAR_PROJECT := tally
 SONAR_USER := admin
 SONAR_PASS := admin
+TALLY_URL ?= http://localhost:8080
 
 build:
 	go vet ./...
@@ -15,7 +16,7 @@ unit:
 	go test ./... -count=1 -coverprofile=$(COVERAGE_OUT) -covermode=atomic
 
 functional:
-	go test ./... -tags=functional -count=1
+	TALLY_BASE_URL=$(TALLY_URL) go test ./... -tags=functional -count=1
 
 lint:
 	golangci-lint run ./...

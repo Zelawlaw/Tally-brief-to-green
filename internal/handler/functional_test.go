@@ -13,10 +13,15 @@ import (
 	"testing"
 )
 
-const baseURL = "http://localhost:8080"
+func baseURL() string {
+	if u := os.Getenv("TALLY_BASE_URL"); u != "" {
+		return u
+	}
+	return "http://localhost:8080"
+}
 
 func apiURL(path string) string {
-	return baseURL + path
+	return baseURL() + path
 }
 
 func TestFunctionalCreateMemberAndContribute(t *testing.T) {
@@ -110,7 +115,7 @@ func TestFunctionalContributionsPage(t *testing.T) {
 	m := postJSON(t, apiURL("/members"), map[string]any{"name": "ContribPageTest"})
 	id := fmt.Sprint(m["id"])
 
-	html := getHTML(t, baseURL+"/contributions")
+	html := getHTML(t, baseURL()+"/contributions")
 	if !strings.Contains(html, "ContribPageTest") {
 		t.Error("contributions page should contain member names in the dropdown")
 	}
@@ -127,7 +132,7 @@ func TestFunctionalSummaryPage(t *testing.T) {
 		"member_id": id, "amount": 100.00,
 	})
 
-	html := getHTML(t, baseURL+"/summary-page")
+	html := getHTML(t, baseURL()+"/summary-page")
 	if !strings.Contains(html, "SummaryPageTest") {
 		t.Error("summary page should contain the member's name")
 	}
@@ -185,7 +190,7 @@ func TestFunctionalHTMLMembersPageShowsData(t *testing.T) {
 	postJSON(t, apiURL("/members"), map[string]any{"name": "HTMLTestMember"})
 
 	// Fetch the HTML members page
-	html := getHTML(t, baseURL+"/")
+	html := getHTML(t, baseURL()+"/")
 
 	if !strings.Contains(html, "HTMLTestMember") {
 		t.Error("members page should contain the created member's name")
@@ -207,7 +212,7 @@ func TestFunctionalStatementPage(t *testing.T) {
 	}
 
 	// Check HTML statement page
-	html := getHTML(t, baseURL+fmt.Sprintf("/members/%s/statement", fmt.Sprint(id)))
+	html := getHTML(t, baseURL()+fmt.Sprintf("/members/%s/statement", fmt.Sprint(id)))
 	if !strings.Contains(html, "StatementTest") {
 		t.Error("statement page should contain the member's name")
 	}
@@ -232,9 +237,9 @@ func getHTML(t *testing.T, url string) string {
 }
 
 func TestMain(m *testing.M) {
-	resp, err := http.Get(baseURL + "/")
+	resp, err := http.Get(baseURL() + "/")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "App not running at %s. Start with: docker compose up app\n", baseURL)
+		fmt.Fprintf(os.Stderr, "App not running at %s. Start with: docker compose up app\n", baseURL())
 		os.Exit(1)
 	}
 	resp.Body.Close()
