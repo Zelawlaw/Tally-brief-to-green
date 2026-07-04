@@ -29,17 +29,28 @@ type Store interface {
 
 // Handler holds dependencies for HTTP handlers.
 type Handler struct {
-	Store Store
-	tmpl  *template.Template
+	Store     Store
+	templates map[string]*template.Template // page name → parsed template
 }
 
 // New creates a Handler with parsed templates.
+// Each page template is parsed separately with base.html so "content" blocks don't clash.
 func New(s Store, templatesDir string) (*Handler, error) {
-	tmpl, err := template.ParseGlob(filepath.Join(templatesDir, "*.html"))
-	if err != nil {
-		return nil, err
+	pages := []string{"members.html", "contributions.html", "summary.html", "statement.html"}
+	tmpls := make(map[string]*template.Template)
+
+	for _, page := range pages {
+		tmpl, err := template.ParseFiles(
+			filepath.Join(templatesDir, "base.html"),
+			filepath.Join(templatesDir, page),
+		)
+		if err != nil {
+			return nil, err
+		}
+		tmpls[page] = tmpl
 	}
-	return &Handler{Store: s, tmpl: tmpl}, nil
+
+	return &Handler{Store: s, templates: tmpls}, nil
 }
 
 // RegisterRoutes sets up all routes on the given mux.
@@ -99,7 +110,7 @@ func (h *Handler) CreateMember(w http.ResponseWriter, r *http.Request) {
 
 	members, _ := h.Store.GetMembers()
 	w.Header().Set(hdrContentType, contentTypeHTML)
-	_ = h.tmpl.ExecuteTemplate(w, "members-table", members)
+	_ = h.templates["members.html"].ExecuteTemplate(w, "members-table", members)
 }
 
 // --- GET /members ---
@@ -222,7 +233,6 @@ func (h *Handler) MemberStatementJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify member exists
 	m, err := h.Store.GetMember(id)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -272,9 +282,9 @@ func (h *Handler) PageStatement(w http.ResponseWriter, r *http.Request) {
 
 // --- helpers ---
 
-func (h *Handler) render(w http.ResponseWriter, name string, data any) {
+func (h *Handler) render(w http.ResponseWriter, page string, data any) {
 	w.Header().Set(hdrContentType, contentTypeHTML)
-	_ = h.tmpl.ExecuteTemplate(w, name, data)
+	_ = h.templates[page].ExecuteTemplate(w, page, data)
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, v any) error {

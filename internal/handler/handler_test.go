@@ -496,7 +496,11 @@ func TestParseID(t *testing.T) {
 
 func TestNewCreatesHandler(t *testing.T) {
 	dir := t.TempDir()
-	_ = os.WriteFile(dir+"/members.html", []byte("{{define \"content\"}}test{{end}}"), 0600)
+	// base.html + all four page templates required by New
+	_ = os.WriteFile(dir+"/base.html", []byte("{{define \"base\"}}{{template \"content\" .}}{{end}}"), 0600)
+	for _, page := range []string{"members.html", "contributions.html", "summary.html", "statement.html"} {
+		_ = os.WriteFile(dir+"/"+page, []byte("{{define \""+page+"\"}}{{template \"base\" .}}{{end}}{{define \"content\"}}test{{end}}"), 0600)
+	}
 	h, err := New(&errorStore{}, dir)
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -504,8 +508,8 @@ func TestNewCreatesHandler(t *testing.T) {
 	if h.Store == nil {
 		t.Error("expected store")
 	}
-	if h.tmpl == nil {
-		t.Error("expected template")
+	if len(h.templates) != 4 {
+		t.Errorf("expected 4 templates, got %d", len(h.templates))
 	}
 }
 
