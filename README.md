@@ -2,7 +2,7 @@
 
 **Tally — a gated-development demo.** Hand an AI coding agent a brief with hard quality gates, and watch it discover, build, and iterate a small Go application until every gate is green.
 
-> **You are on the `start` branch** — it contains exactly two files: this README (for you) and [`BRIEF.md`](./BRIEF.md) (for the agent). Everything else — the app, the tests, the Docker setup, even the quality-gate tooling — gets built by Claude Code executing the brief. The `master` branch holds one finished run, every gate green, so you can compare your result with mine.
+> **You are on the `master` branch** — this is one finished run, every gate green. Check out `start` if you want to run the experiment yourself: two files (this README and a brief) and an AI agent that discovers, builds, and iterates from scratch.
 
 ## The idea
 
@@ -72,11 +72,13 @@ Budget expectation: a run takes roughly an hour of wall time and a few dollars o
 
 ## Verify and compare
 
+On `master`, everything should pass immediately:
+
 ```bash
-make gates          # the whole loop, one command
+make gates          # all gates green, no iterations needed
 ```
 
-Then look at what your run produced versus mine:
+To see what the agent built versus what you'd start with:
 
 ```bash
 git diff start master --stat        # how far the journey was
