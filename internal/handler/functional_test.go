@@ -9,43 +9,32 @@ import (
 	"net/http"
 	"os"
 	"testing"
-
-	"tally/internal/store"
 )
 
-const baseURL = "http://localhost:8080"
+const baseURL = "http://localhost:8081"
 
 func apiURL(path string) string {
 	return baseURL + path
 }
 
 func TestFunctionalCreateMemberAndContribute(t *testing.T) {
-	// Create member
 	member := postJSON(t, apiURL("/members"), map[string]any{"name": "Alice"})
 	if member["id"] == nil {
 		t.Fatal("expected member id")
 	}
-	var memberID float64
-	fmt.Sscanf(fmt.Sprint(member["id"]), "%f", &memberID)
+	id := member["id"]
 
-	// Create contribution
-	contrib := postJSON(t, apiURL("/contributions"), map[string]any{
-		"member_id": int64(memberID),
+	postJSON(t, apiURL("/contributions"), map[string]any{
+		"member_id": id,
 		"amount":    50.00,
 	})
-	if contrib["id"] == nil {
-		t.Fatal("expected contribution id")
-	}
-
-	// Add another contribution
 	postJSON(t, apiURL("/contributions"), map[string]any{
-		"member_id": int64(memberID),
+		"member_id": id,
 		"amount":    25.50,
 	})
 
-	// Check summary
-	resp := getJSON(t, apiURL("/summary"))
-	members := resp["members"].([]any)
+	summary := getMap(t, apiURL("/summary"))
+	members := summary["members"].([]any)
 	if len(members) != 1 {
 		t.Fatalf("expected 1 member, got %d", len(members))
 	}
@@ -55,7 +44,7 @@ func TestFunctionalCreateMemberAndContribute(t *testing.T) {
 		t.Errorf("expected total 75.50, got %.2f", m["total"].(float64))
 	}
 
-	groupTotal := resp["group_total"].(float64)
+	groupTotal := summary["group_total"].(float64)
 	if groupTotal != 75.50 {
 		t.Errorf("expected group_total 75.50, got %.2f", groupTotal)
 	}
@@ -94,28 +83,23 @@ func TestFunctionalBadInput(t *testing.T) {
 }
 
 func TestFunctionalPersistence(t *testing.T) {
-	// Verify data from previous test survived (or create new)
-	// The app uses a shared SQLite file on a volume, so data should persist
-	resp := getJSON(t, apiURL("/members"))
-	members := resp.([]any)
-	if len(members) == 0 {
-		// Fresh start - set up some data
+	// Verify data survives across requests (same app, same SQLite file on volume)
+	resp := getList(t, apiURL("/members"))
+	if len(resp) == 0 {
 		m := postJSON(t, apiURL("/members"), map[string]any{"name": "PersistTest"})
 		id := m["id"]
-
 		postJSON(t, apiURL("/contributions"), map[string]any{
 			"member_id": id, "amount": 42.00,
 		})
 
-		// Re-read
-		members := getJSON(t, apiURL("/members")).([]any)
-		if len(members) == 0 {
+		resp = getList(t, apiURL("/members"))
+		if len(resp) == 0 {
 			t.Fatal("expected members after insert")
 		}
 	}
 
-	// Verify we can read summary
-	getJSON(t, apiURL("/summary"))
+	// Verify summary works
+	getMap(t, apiURL("/summary"))
 }
 
 func postJSON(t *testing.T, url string, body any) map[string]any {
@@ -128,11 +112,11 @@ func postJSON(t *testing.T, url string, body any) map[string]any {
 	defer resp.Body.Close()
 
 	var result map[string]any
-	json.NewDecoder(resp.Body).Decode(&result)
+	_ = json.NewDecoder(resp.Body).Decode(&result)
 	return result
 }
 
-func getJSON(t *testing.T, url string) any {
+func getMap(t *testing.T, url string) map[string]any {
 	t.Helper()
 	resp, err := http.Get(url)
 	if err != nil {
@@ -140,7 +124,22 @@ func getJSON(t *testing.T, url string) any {
 	}
 	defer resp.Body.Close()
 
-	var result any
+	var result map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	return result
+}
+
+func getList(t *testing.T, url string) []any {
+	t.Helper()
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatalf("GET %s: %v", url, err)
+	}
+	defer resp.Body.Close()
+
+	var result []any
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -148,7 +147,6 @@ func getJSON(t *testing.T, url string) any {
 }
 
 func TestMain(m *testing.M) {
-	// Ensure the app is running before running functional tests
 	resp, err := http.Get(baseURL + "/")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "App not running at %s. Start with: docker compose up app\n", baseURL)
