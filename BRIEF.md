@@ -37,7 +37,7 @@ Answer with evidence, not assumption:
 
 **G1 — Build:** `make build` — `go vet ./...` clean, binary builds, `docker compose build` succeeds.
 **G2 — Unit tests:** `make unit` — `go test ./... -coverprofile=coverage.out` all green. Table-driven tests expected; the coverage profile feeds G5.
-**G3 — Functional tests:** `make functional` — compose stack up, then black-box HTTP tests against the running app (Go tests tagged `functional`): JSON API (create member → contribute → summary math correct to the cent; bad input rejected with proper status codes), HTML pages (members page shows created members, statement page shows contributions with running balance), and persistence (data survives a container restart via the SQLite volume).
+**G3 — Functional tests:** `make functional` — compose stack up, then black-box HTTP tests against the running app (Go tests tagged `functional`): JSON API (create member → contribute → summary math correct to the cent; bad input rejected with proper status codes), HTML rendering (members page shows created members, contributions page has the member dropdown, summary page shows totals, statement page shows contributions with running balance), and persistence (data survives a container restart via the SQLite volume).
 
 ## Quality gates
 
@@ -64,7 +64,7 @@ After the first all-green run, execute one mini-brief *through the same loop*: *
 - [ ] `DISCOVERY.md` committed before any code
 - [ ] `make gates` green three consecutive runs
 - [ ] SonarQube dashboard: Standard Gate PASSED (screenshot saved to `docs/`)
-- [ ] Functional tests cover both JSON API and HTML rendering (members page and statement page)
+- [ ] Functional tests cover JSON API and HTML rendering for all four pages (members, contributions, summary, statement)
 - [ ] Functional persistence test proves SQLite survives restart
 - [ ] Improvement round shipped through the full loop
 - [ ] No gate was weakened (R3) — `git log` tells the story honestly
