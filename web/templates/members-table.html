@@ -1,0 +1,14 @@
+{{define "members-table"}}
+{{- /* partial: rendered in response to hx-post /members to replace #members-list */ -}}
+<table>
+  <thead>
+    <tr><th>Name</th><th>Joined</th></tr>
+  </thead>
+  <tbody>
+    {{range .Members}}
+    <tr><td>{{.Name}}</td><td>{{.CreatedAt}}</td></tr>
+    {{end}}
+  </tbody>
+</table>
+{{if not .Members}}<p>No members yet.</p>{{end}}
+{{end}}

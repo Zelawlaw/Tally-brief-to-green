@@ -1,0 +1,244 @@
+package handler
+
+import (
+	"encoding/json"
+	"html/template"
+	"net/http"
+	"path/filepath"
+	"strconv"
+	"strings"
+
+	"tally/internal/store"
+)
+
+// Store is the interface the handler needs from the storage layer.
+type Store interface {
+	CreateMember(name string) (*store.Member, error)
+	GetMembers() ([]store.Member, error)
+	GetMember(id int64) (*store.Member, error)
+	CreateContribution(memberID int64, amount float64, description string) (*store.Contribution, error)
+	GetSummary() (*store.Summary, error)
+}
+
+// Handler holds dependencies for HTTP handlers.
+type Handler struct {
+	Store Store
+	tmpl  *template.Template
+}
+
+// New creates a Handler with parsed templates.
+func New(s Store, templatesDir string) (*Handler, error) {
+	tmpl, err := template.ParseGlob(filepath.Join(templatesDir, "*.html"))
+	if err != nil {
+		return nil, err
+	}
+	return &Handler{Store: s, tmpl: tmpl}, nil
+}
+
+// RegisterRoutes sets up all routes on the given mux.
+func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("POST /members", h.CreateMember)
+	mux.HandleFunc("GET /members", h.GetMembers)
+	mux.HandleFunc("POST /contributions", h.CreateContribution)
+	mux.HandleFunc("GET /summary", h.GetSummary)
+	mux.HandleFunc("GET /", h.PageMembers)
+	mux.HandleFunc("GET /contributions", h.PageContributions)
+	mux.HandleFunc("GET /summary-page", h.PageSummary)
+}
+
+// isJSON returns true if the request Content-Type is application/json.
+func isJSON(r *http.Request) bool {
+	ct := r.Header.Get("Content-Type")
+	return strings.HasPrefix(ct, "application/json")
+}
+
+// --- POST /members ---
+
+func (h *Handler) CreateMember(w http.ResponseWriter, r *http.Request) {
+	var name string
+
+	if isJSON(r) {
+		var req struct {
+			Name string `json:"name"`
+		}
+		if err := decodeJSON(w, r, &req); err != nil {
+			return
+		}
+		name = req.Name
+	} else {
+		if err := r.ParseForm(); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid form data")
+			return
+		}
+		name = r.FormValue("name")
+	}
+
+	m, err := h.Store.CreateMember(name)
+	if err != nil {
+		if isJSON(r) {
+			writeError(w, http.StatusBadRequest, err.Error())
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		return
+	}
+
+	if isJSON(r) {
+		writeJSON(w, http.StatusCreated, m)
+		return
+	}
+
+	members, _ := h.Store.GetMembers()
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_ = h.tmpl.ExecuteTemplate(w, "members-table", map[string]any{"Members": members})
+}
+
+// --- GET /members ---
+
+func (h *Handler) GetMembers(w http.ResponseWriter, r *http.Request) {
+	members, err := h.Store.GetMembers()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, members)
+}
+
+// --- POST /contributions ---
+
+func (h *Handler) CreateContribution(w http.ResponseWriter, r *http.Request) {
+	var memberID int64
+	var amount float64
+	var description string
+
+	if isJSON(r) {
+		var req struct {
+			MemberID    int64   `json:"member_id"`
+			Amount      float64 `json:"amount"`
+			Description string  `json:"description"`
+		}
+		if err := decodeJSON(w, r, &req); err != nil {
+			return
+		}
+		memberID = req.MemberID
+		amount = req.Amount
+		description = req.Description
+	} else {
+		if err := r.ParseForm(); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid form data")
+			return
+		}
+		var err error
+		memberID, err = strconv.ParseInt(r.FormValue("member_id"), 10, 64)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid member_id")
+			return
+		}
+		amount, err = strconv.ParseFloat(r.FormValue("amount"), 64)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid amount")
+			return
+		}
+		description = r.FormValue("description")
+	}
+
+	c, err := h.Store.CreateContribution(memberID, amount, description)
+	if err != nil {
+		if isJSON(r) {
+			writeError(w, http.StatusBadRequest, err.Error())
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		return
+	}
+
+	if isJSON(r) {
+		writeJSON(w, http.StatusCreated, c)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	//nolint:gosec // c.Amount is a validated, rounded float64 — cannot contain executable content
+	_, _ = w.Write([]byte("<p>Contribution added: " + formatCurrency(c.Amount) + "</p>"))
+}
+
+// --- GET /summary ---
+
+func (h *Handler) GetSummary(w http.ResponseWriter, r *http.Request) {
+	s, err := h.Store.GetSummary()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, s)
+}
+
+// --- HTML page handlers ---
+
+func (h *Handler) PageMembers(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	members, err := h.Store.GetMembers()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	h.render(w, "members.html", map[string]any{"Members": members})
+}
+
+func (h *Handler) PageContributions(w http.ResponseWriter, r *http.Request) {
+	members, err := h.Store.GetMembers()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	h.render(w, "contributions.html", map[string]any{"Members": members})
+}
+
+func (h *Handler) PageSummary(w http.ResponseWriter, r *http.Request) {
+	s, err := h.Store.GetSummary()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	h.render(w, "summary.html", map[string]any{"Summary": s})
+}
+
+// --- helpers ---
+
+func (h *Handler) render(w http.ResponseWriter, name string, data any) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_ = h.tmpl.ExecuteTemplate(w, name, data)
+}
+
+func decodeJSON(w http.ResponseWriter, r *http.Request, v any) error {
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON")
+		return err
+	}
+	return nil
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(v)
+}
+
+func writeError(w http.ResponseWriter, status int, msg string) {
+	writeJSON(w, status, map[string]string{"error": msg})
+}
+
+func formatCurrency(v float64) string {
+	return strconv.FormatFloat(v, 'f', 2, 64)
+}
+
+// ParseID extracts an int64 ID from a path segment like /members/3/statement.
+func ParseID(path, prefix string) (int64, error) {
+	idStr := strings.TrimPrefix(path, prefix)
+	idStr = strings.TrimSuffix(idStr, "/statement")
+	idStr = strings.TrimSuffix(idStr, "/")
+	return strconv.ParseInt(idStr, 10, 64)
+}

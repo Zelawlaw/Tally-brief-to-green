@@ -1,4 +1,7 @@
-tally
+/tally
 coverage.out
+coverage.html
 *.db
+*.db-wal
+*.db-shm
 .scannerwork/

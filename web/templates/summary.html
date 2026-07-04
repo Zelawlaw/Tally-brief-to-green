@@ -1,0 +1,24 @@
+{{define "summary.html"}}{{- template "base" . -}}{{end}}
+
+{{define "content"}}
+<h1>Summary</h1>
+
+<div id="summary" hx-get="/summary" hx-trigger="every 10s">
+  {{template "summary-content" .Summary}}
+</div>
+{{end}}
+
+{{define "summary-content"}}
+<table>
+  <thead>
+    <tr><th>Member</th><th>Total</th></tr>
+  </thead>
+  <tbody>
+    {{range .Members}}
+    <tr><td>{{.Name}}</td><td>{{printf "%.2f" .Total}}</td></tr>
+    {{end}}
+  </tbody>
+</table>
+{{if not .Members}}<p>No contributions yet.</p>{{end}}
+<div class="total">Group Total: {{printf "%.2f" .GroupTotal}}</div>
+{{end}}

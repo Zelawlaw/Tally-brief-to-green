@@ -1,0 +1,29 @@
+{{define "members.html"}}{{- template "base" . -}}{{end}}
+
+{{define "content"}}
+<h1>Members</h1>
+
+<div id="members-list">
+  {{template "members-table" .Members}}
+</div>
+
+<h2>Add Member</h2>
+<form hx-post="/members" hx-target="#members-list" hx-swap="outerHTML" hx-on::after-request="this.reset()">
+  <input type="text" name="name" placeholder="Name" required>
+  <button type="submit">Add</button>
+</form>
+{{end}}
+
+{{define "members-table"}}
+<table>
+  <thead>
+    <tr><th>Name</th><th>Joined</th></tr>
+  </thead>
+  <tbody>
+    {{range .}}
+    <tr><td>{{.Name}}</td><td>{{.CreatedAt}}</td></tr>
+    {{end}}
+  </tbody>
+</table>
+{{if not .}}<p>No members yet.</p>{{end}}
+{{end}}

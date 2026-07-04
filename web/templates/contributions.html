@@ -1,0 +1,25 @@
+{{define "contributions.html"}}{{- template "base" . -}}{{end}}
+
+{{define "content"}}
+<h1>Add Contribution</h1>
+
+<form hx-post="/contributions" hx-target="#result" hx-swap="innerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+  <p>
+    <select name="member_id" required>
+      <option value="">Select member...</option>
+      {{range .Members}}
+      <option value="{{.ID}}">{{.Name}}</option>
+      {{end}}
+    </select>
+  </p>
+  <p>
+    <input type="number" name="amount" step="0.01" min="0.01" placeholder="Amount" required>
+  </p>
+  <p>
+    <input type="text" name="description" placeholder="Description (optional)">
+  </p>
+  <button type="submit">Add Contribution</button>
+</form>
+
+<div id="result"></div>
+{{end}}

@@ -1,0 +1,29 @@
+{{define "base"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tally</title>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+    nav { margin-bottom: 2rem; }
+    nav a { margin-right: 1rem; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd; }
+    form { margin: 1rem 0; }
+    input, select, button { padding: 0.4rem; margin-right: 0.5rem; }
+    .error { color: red; }
+    .total { font-size: 1.2rem; font-weight: bold; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Members</a>
+    <a href="/contributions">Add Contribution</a>
+    <a href="/summary-page">Summary</a>
+  </nav>
+  {{template "content" .}}
+</body>
+</html>
+{{end}}
