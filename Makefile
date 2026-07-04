@@ -2,9 +2,10 @@
 
 APP_BIN := tally
 COVERAGE_OUT := coverage.out
-SONAR_HOST := http://localhost:9001
+SONAR_HOST := http://localhost:9000
 SONAR_PROJECT := tally
-SONAR_TOKEN ?=
+SONAR_USER := admin
+SONAR_PASS := admin
 
 build:
 	go vet ./...
@@ -20,7 +21,7 @@ lint:
 	golangci-lint run ./...
 
 sonar:
-	sonar-scanner -Dsonar.host.url=$(SONAR_HOST) -Dsonar.projectKey=$(SONAR_PROJECT) -Dsonar.token=$(SONAR_TOKEN)
+	sonar-scanner -Dsonar.host.url=$(SONAR_HOST) -Dsonar.projectKey=$(SONAR_PROJECT) -Dsonar.login=$(SONAR_USER) -Dsonar.password=$(SONAR_PASS)
 	@echo "Polling SonarQube quality gate for project '$(SONAR_PROJECT)'..."
 	@./sonar/check-gate.sh $(SONAR_HOST) $(SONAR_PROJECT)
 

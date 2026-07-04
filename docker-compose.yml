@@ -2,7 +2,7 @@ services:
   app:
     build: .
     ports:
-      - "8081:8080"
+      - "8080:8080"
     volumes:
       - tally-data:/data
     environment:
@@ -12,7 +12,7 @@ services:
   sonarqube:
     image: sonarqube:community
     ports:
-      - "9001:9000"
+      - "9000:9000"
     environment:
       - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
     volumes:

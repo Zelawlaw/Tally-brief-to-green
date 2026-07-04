@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-const baseURL = "http://localhost:8081"
+const baseURL = "http://localhost:8080"
 
 func apiURL(path string) string {
 	return baseURL + path
