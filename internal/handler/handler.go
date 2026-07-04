@@ -99,7 +99,7 @@ func (h *Handler) CreateMember(w http.ResponseWriter, r *http.Request) {
 
 	members, _ := h.Store.GetMembers()
 	w.Header().Set(hdrContentType, contentTypeHTML)
-	_ = h.tmpl.ExecuteTemplate(w, "members-table", map[string]any{"Members": members})
+	_ = h.tmpl.ExecuteTemplate(w, "members-table", members)
 }
 
 // --- GET /members ---

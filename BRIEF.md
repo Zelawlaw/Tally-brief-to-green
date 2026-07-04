@@ -37,7 +37,7 @@ Answer with evidence, not assumption:
 
 **G1 — Build:** `make build` — `go vet ./...` clean, binary builds, `docker compose build` succeeds.
 **G2 — Unit tests:** `make unit` — `go test ./... -coverprofile=coverage.out` all green. Table-driven tests expected; the coverage profile feeds G5.
-**G3 — Functional tests:** `make functional` — compose stack up, then black-box HTTP tests against the running app (Go tests tagged `functional`): create member → contribute → summary math correct to the cent; bad input rejected with proper status codes; data survives a container restart (the SQLite volume proves persistence).
+**G3 — Functional tests:** `make functional` — compose stack up, then black-box HTTP tests against the running app (Go tests tagged `functional`): JSON API (create member → contribute → summary math correct to the cent; bad input rejected with proper status codes), HTML rendering (members page shows created members, contributions page has the member dropdown, summary page shows totals, statement page shows contributions with running balance), and persistence (data survives a container restart via the SQLite volume).
 
 ## Quality gates
 

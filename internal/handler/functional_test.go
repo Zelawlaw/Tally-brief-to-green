@@ -6,8 +6,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -104,6 +106,36 @@ func TestFunctionalPersistence(t *testing.T) {
 	getMap(t, apiURL("/summary"))
 }
 
+func TestFunctionalContributionsPage(t *testing.T) {
+	m := postJSON(t, apiURL("/members"), map[string]any{"name": "ContribPageTest"})
+	id := fmt.Sprint(m["id"])
+
+	html := getHTML(t, baseURL+"/contributions")
+	if !strings.Contains(html, "ContribPageTest") {
+		t.Error("contributions page should contain member names in the dropdown")
+	}
+	if !strings.Contains(html, id) {
+		t.Error("contributions page should contain member IDs in option values")
+	}
+}
+
+func TestFunctionalSummaryPage(t *testing.T) {
+	m := postJSON(t, apiURL("/members"), map[string]any{"name": "SummaryPageTest"})
+	id := m["id"]
+
+	postJSON(t, apiURL("/contributions"), map[string]any{
+		"member_id": id, "amount": 100.00,
+	})
+
+	html := getHTML(t, baseURL+"/summary-page")
+	if !strings.Contains(html, "SummaryPageTest") {
+		t.Error("summary page should contain the member's name")
+	}
+	if !strings.Contains(html, "100.00") {
+		t.Error("summary page should contain the contribution total")
+	}
+}
+
 func postJSON(t *testing.T, url string, body any) map[string]any {
 	t.Helper()
 	payload, _ := json.Marshal(body)
@@ -146,6 +178,57 @@ func getList(t *testing.T, url string) []any {
 		t.Fatalf("decode response: %v", err)
 	}
 	return result
+}
+
+func TestFunctionalHTMLMembersPageShowsData(t *testing.T) {
+	// Create a member via JSON API
+	postJSON(t, apiURL("/members"), map[string]any{"name": "HTMLTestMember"})
+
+	// Fetch the HTML members page
+	html := getHTML(t, baseURL+"/")
+
+	if !strings.Contains(html, "HTMLTestMember") {
+		t.Error("members page should contain the created member's name")
+	}
+}
+
+func TestFunctionalStatementPage(t *testing.T) {
+	m := postJSON(t, apiURL("/members"), map[string]any{"name": "StatementTest"})
+	id := m["id"]
+
+	postJSON(t, apiURL("/contributions"), map[string]any{
+		"member_id": id, "amount": 42.00, "description": "test payment",
+	})
+
+	// Check JSON statement API
+	entries := getList(t, apiURL(fmt.Sprintf("/members/%s/statement-json", fmt.Sprint(id))))
+	if len(entries) == 0 {
+		t.Fatal("expected at least 1 statement entry")
+	}
+
+	// Check HTML statement page
+	html := getHTML(t, baseURL+fmt.Sprintf("/members/%s/statement", fmt.Sprint(id)))
+	if !strings.Contains(html, "StatementTest") {
+		t.Error("statement page should contain the member's name")
+	}
+	if !strings.Contains(html, "42.00") {
+		t.Error("statement page should contain the contribution amount")
+	}
+}
+
+func getHTML(t *testing.T, url string) string {
+	t.Helper()
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatalf("GET %s: %v", url, err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+	return string(body)
 }
 
 func TestMain(m *testing.M) {
