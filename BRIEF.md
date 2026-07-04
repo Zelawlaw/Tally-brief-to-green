@@ -37,7 +37,7 @@ Answer with evidence, not assumption:
 
 **G1 — Build:** `make build` — `go vet ./...` clean, binary builds, `docker compose build` succeeds.
 **G2 — Unit tests:** `make unit` — `go test ./... -coverprofile=coverage.out` all green. Table-driven tests expected; the coverage profile feeds G5.
-**G3 — Functional tests:** `make functional` — compose stack up, then black-box HTTP tests against the running app (Go tests tagged `functional`): create member → contribute → summary math correct to the cent; bad input rejected with proper status codes; data survives a container restart (the SQLite volume proves persistence).
+**G3 — Functional tests:** `make functional` — compose stack up, then black-box HTTP tests against the running app (Go tests tagged `functional`): JSON API (create member → contribute → summary math correct to the cent; bad input rejected with proper status codes), HTML pages (members page shows created members, statement page shows contributions with running balance), and persistence (data survives a container restart via the SQLite volume).
 
 ## Quality gates
 
@@ -56,7 +56,7 @@ Iterate: fix → commit → `make gates` → repeat until one clean end-to-end g
 
 ## Improvement round (the "continuously improve" part)
 
-After the first all-green run, execute one mini-brief *through the same loop*: **add a member statement endpoint + page** (`GET /members/{id}/statement` — chronological contributions with running balance). Discovery addendum → code → all gates green again, including back to 100% coverage. This demonstrates that the gates make change cheap, not expensive.
+After the first all-green run, execute one mini-brief *through the same loop*: **add a member statement endpoint + page** (`GET /members/{id}/statement` — chronological contributions with running balance) **with a functional test that verifies the HTML page renders the data correctly**. Discovery addendum → code → all gates green again, including back to 100% coverage. This demonstrates that the gates make change cheap, not expensive.
 
 ---
 
@@ -64,6 +64,7 @@ After the first all-green run, execute one mini-brief *through the same loop*: *
 - [ ] `DISCOVERY.md` committed before any code
 - [ ] `make gates` green three consecutive runs
 - [ ] SonarQube dashboard: Standard Gate PASSED (screenshot saved to `docs/`)
+- [ ] Functional tests cover both JSON API and HTML rendering (members page and statement page)
 - [ ] Functional persistence test proves SQLite survives restart
 - [ ] Improvement round shipped through the full loop
 - [ ] No gate was weakened (R3) — `git log` tells the story honestly
