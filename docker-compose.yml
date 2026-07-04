@@ -12,7 +12,7 @@ services:
   sonarqube:
     image: sonarqube:community
     ports:
-      - "9000:9000"
+      - "9001:9000"
     environment:
       - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
     volumes:
