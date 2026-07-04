@@ -45,7 +45,3 @@ internal/handler/     — HTTP handlers (httptest for unit tests)
 web/templates/        — Go html/template files
 web/static/           — CSS, HTMX
 ```
-
-## AgentsRUs
-
-Project: Tally (LinkedIn-Posts-Tally). See `$AGENTSRUS_ROOT/projects/LinkedIn-Posts-Tally/`.
