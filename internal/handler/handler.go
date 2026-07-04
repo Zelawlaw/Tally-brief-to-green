@@ -11,6 +11,12 @@ import (
 	"tally/internal/store"
 )
 
+const (
+	hdrContentType  = "Content-Type"
+	contentTypeJSON = "application/json; charset=utf-8"
+	contentTypeHTML = "text/html; charset=utf-8"
+)
+
 // Store is the interface the handler needs from the storage layer.
 type Store interface {
 	CreateMember(name string) (*store.Member, error)
@@ -18,6 +24,7 @@ type Store interface {
 	GetMember(id int64) (*store.Member, error)
 	CreateContribution(memberID int64, amount float64, description string) (*store.Contribution, error)
 	GetSummary() (*store.Summary, error)
+	GetStatement(memberID int64) ([]store.StatementEntry, error)
 }
 
 // Handler holds dependencies for HTTP handlers.
@@ -44,11 +51,13 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /", h.PageMembers)
 	mux.HandleFunc("GET /contributions", h.PageContributions)
 	mux.HandleFunc("GET /summary-page", h.PageSummary)
+	mux.HandleFunc("GET /members/{id}/statement", h.PageStatement)
+	mux.HandleFunc("GET /members/{id}/statement-json", h.MemberStatementJSON)
 }
 
 // isJSON returns true if the request Content-Type is application/json.
 func isJSON(r *http.Request) bool {
-	ct := r.Header.Get("Content-Type")
+	ct := r.Header.Get(hdrContentType)
 	return strings.HasPrefix(ct, "application/json")
 }
 
@@ -89,7 +98,7 @@ func (h *Handler) CreateMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	members, _ := h.Store.GetMembers()
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set(hdrContentType, contentTypeHTML)
 	_ = h.tmpl.ExecuteTemplate(w, "members-table", map[string]any{"Members": members})
 }
 
@@ -157,7 +166,7 @@ func (h *Handler) CreateContribution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set(hdrContentType, contentTypeHTML)
 	//nolint:gosec // c.Amount is a validated, rounded float64 — cannot contain executable content
 	_, _ = w.Write([]byte("<p>Contribution added: " + formatCurrency(c.Amount) + "</p>"))
 }
@@ -206,10 +215,65 @@ func (h *Handler) PageSummary(w http.ResponseWriter, r *http.Request) {
 	h.render(w, "summary.html", map[string]any{"Summary": s})
 }
 
+func (h *Handler) MemberStatementJSON(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid member id")
+		return
+	}
+
+	// Verify member exists
+	m, err := h.Store.GetMember(id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if m == nil {
+		writeError(w, http.StatusNotFound, "member not found")
+		return
+	}
+
+	entries, err := h.Store.GetStatement(id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, entries)
+}
+
+func (h *Handler) PageStatement(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "invalid member id", http.StatusBadRequest)
+		return
+	}
+
+	m, err := h.Store.GetMember(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if m == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	entries, err := h.Store.GetStatement(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	h.render(w, "statement.html", map[string]any{
+		"Member":  m,
+		"Entries": entries,
+	})
+}
+
 // --- helpers ---
 
 func (h *Handler) render(w http.ResponseWriter, name string, data any) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set(hdrContentType, contentTypeHTML)
 	_ = h.tmpl.ExecuteTemplate(w, name, data)
 }
 
@@ -222,7 +286,7 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, v any) error {
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set(hdrContentType, contentTypeJSON)
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
 }

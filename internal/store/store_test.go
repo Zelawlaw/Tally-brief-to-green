@@ -247,6 +247,56 @@ func TestClosedStoreErrors(t *testing.T) {
 	}
 }
 
+func TestGetStatement(t *testing.T) {
+	s := newTestStore(t)
+	m, _ := s.CreateMember("Alice")
+	_, _ = s.CreateContribution(m.ID, 100.00, "first")
+	_, _ = s.CreateContribution(m.ID, 50.00, "second")
+	_, _ = s.CreateContribution(m.ID, 25.00, "third")
+
+	entries, err := s.GetStatement(m.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(entries))
+	}
+	if entries[0].Balance != 100.00 {
+		t.Errorf("expected balance 100.00, got %.2f", entries[0].Balance)
+	}
+	if entries[1].Balance != 150.00 {
+		t.Errorf("expected balance 150.00, got %.2f", entries[1].Balance)
+	}
+	if entries[2].Balance != 175.00 {
+		t.Errorf("expected balance 175.00, got %.2f", entries[2].Balance)
+	}
+}
+
+func TestGetStatementEmpty(t *testing.T) {
+	s := newTestStore(t)
+	m, _ := s.CreateMember("Alice")
+	entries, err := s.GetStatement(m.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if entries == nil {
+		t.Error("expected non-nil empty slice")
+	}
+	if len(entries) != 0 {
+		t.Errorf("expected 0 entries, got %d", len(entries))
+	}
+}
+
+func TestGetStatementClosedStore(t *testing.T) {
+	db, _ := sql.Open("sqlite", ":memory:?cache=shared")
+	s, _ := New(db)
+	_ = s.Close()
+	_, err := s.GetStatement(1)
+	if err == nil {
+		t.Error("expected error after close")
+	}
+}
+
 func TestClosedStoreContributionError(t *testing.T) {
 	db, _ := sql.Open("sqlite", ":memory:?cache=shared")
 	s, _ := New(db)

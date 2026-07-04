@@ -68,6 +68,27 @@ func (e *errorStore) CreateContribution(memberID int64, amount float64, descript
 	return c, nil
 }
 
+func (e *errorStore) GetStatement(memberID int64) ([]store.StatementEntry, error) {
+	if e.errSummary != nil {
+		return nil, e.errSummary
+	}
+	var entries []store.StatementEntry
+	var balance float64
+	for _, c := range e.contributions {
+		if c.MemberID == memberID {
+			balance += c.Amount
+			entries = append(entries, store.StatementEntry{
+				ID: c.ID, Amount: c.Amount, Description: c.Description,
+				CreatedAt: c.CreatedAt, Balance: balance,
+			})
+		}
+	}
+	if entries == nil {
+		entries = []store.StatementEntry{}
+	}
+	return entries, nil
+}
+
 func (e *errorStore) GetSummary() (*store.Summary, error) {
 	if e.errSummary != nil {
 		return nil, e.errSummary
@@ -514,6 +535,140 @@ func TestCreateContributionParseFormError(t *testing.T) {
 	h.CreateContribution(rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", rec.Code)
+	}
+}
+
+// --- Statement tests ---
+
+func TestMemberStatementJSON(t *testing.T) {
+	s := &errorStore{
+		members:       []store.Member{{ID: 1, Name: "Alice", CreatedAt: "..."}},
+		contributions: []store.Contribution{{ID: 1, MemberID: 1, Amount: 50.00, CreatedAt: "..."}},
+	}
+	h, _ := New(s, "../../web/templates")
+
+	req := httptest.NewRequest("GET", "/members/1/statement-json", nil)
+	req.SetPathValue("id", "1")
+	rec := httptest.NewRecorder()
+	h.MemberStatementJSON(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rec.Code)
+	}
+}
+
+func TestMemberStatementJSONBadID(t *testing.T) {
+	h, _ := New(&errorStore{}, "../../web/templates")
+	req := httptest.NewRequest("GET", "/members/abc/statement-json", nil)
+	req.SetPathValue("id", "abc")
+	rec := httptest.NewRecorder()
+	h.MemberStatementJSON(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", rec.Code)
+	}
+}
+
+func TestMemberStatementJSONNotFound(t *testing.T) {
+	h, _ := New(&errorStore{}, "../../web/templates")
+	req := httptest.NewRequest("GET", "/members/99/statement-json", nil)
+	req.SetPathValue("id", "99")
+	rec := httptest.NewRecorder()
+	h.MemberStatementJSON(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", rec.Code)
+	}
+}
+
+func TestMemberStatementJSONGetMemberError(t *testing.T) {
+	s := &errorStore{errMember: errors.New("db error")}
+	h, _ := New(s, "../../web/templates")
+	req := httptest.NewRequest("GET", "/members/1/statement-json", nil)
+	req.SetPathValue("id", "1")
+	rec := httptest.NewRecorder()
+	h.MemberStatementJSON(rec, req)
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", rec.Code)
+	}
+}
+
+func TestMemberStatementJSONGetStatementError(t *testing.T) {
+	s := &errorStore{
+		members:    []store.Member{{ID: 1, Name: "Alice", CreatedAt: "..."}},
+		errSummary: errors.New("db error"),
+	}
+	h, _ := New(s, "../../web/templates")
+	req := httptest.NewRequest("GET", "/members/1/statement-json", nil)
+	req.SetPathValue("id", "1")
+	rec := httptest.NewRecorder()
+	h.MemberStatementJSON(rec, req)
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", rec.Code)
+	}
+}
+
+func TestPageStatement(t *testing.T) {
+	s := &errorStore{
+		members:       []store.Member{{ID: 1, Name: "Alice", CreatedAt: "..."}},
+		contributions: []store.Contribution{{ID: 1, MemberID: 1, Amount: 50.00, CreatedAt: "..."}},
+	}
+	h, _ := New(s, "../../web/templates")
+
+	req := httptest.NewRequest("GET", "/members/1/statement", nil)
+	req.SetPathValue("id", "1")
+	rec := httptest.NewRecorder()
+	h.PageStatement(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rec.Code)
+	}
+}
+
+func TestPageStatementBadID(t *testing.T) {
+	h, _ := New(&errorStore{}, "../../web/templates")
+	req := httptest.NewRequest("GET", "/members/abc/statement", nil)
+	req.SetPathValue("id", "abc")
+	rec := httptest.NewRecorder()
+	h.PageStatement(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", rec.Code)
+	}
+}
+
+func TestPageStatementNotFound(t *testing.T) {
+	h, _ := New(&errorStore{}, "../../web/templates")
+	req := httptest.NewRequest("GET", "/members/99/statement", nil)
+	req.SetPathValue("id", "99")
+	rec := httptest.NewRecorder()
+	h.PageStatement(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", rec.Code)
+	}
+}
+
+func TestPageStatementGetMemberError(t *testing.T) {
+	s := &errorStore{errMember: errors.New("db error")}
+	h, _ := New(s, "../../web/templates")
+	req := httptest.NewRequest("GET", "/members/1/statement", nil)
+	req.SetPathValue("id", "1")
+	rec := httptest.NewRecorder()
+	h.PageStatement(rec, req)
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", rec.Code)
+	}
+}
+
+func TestPageStatementGetStatementError(t *testing.T) {
+	s := &errorStore{
+		members:    []store.Member{{ID: 1, Name: "Alice", CreatedAt: "..."}},
+		errSummary: errors.New("db error"),
+	}
+	h, _ := New(s, "../../web/templates")
+	req := httptest.NewRequest("GET", "/members/1/statement", nil)
+	req.SetPathValue("id", "1")
+	rec := httptest.NewRecorder()
+	h.PageStatement(rec, req)
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", rec.Code)
 	}
 }
 

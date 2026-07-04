@@ -174,6 +174,42 @@ func (s *Store) GetSummary() (*Summary, error) {
 	return &Summary{Members: members, GroupTotal: groupTotal}, rows.Err()
 }
 
+// StatementEntry is a single contribution row for a member statement.
+type StatementEntry struct {
+	ID          int64   `json:"id"`
+	Amount      float64 `json:"amount"`
+	Description string  `json:"description"`
+	CreatedAt   string  `json:"created_at"`
+	Balance     float64 `json:"balance"`
+}
+
+// GetStatement returns a member's contributions in chronological order with running balance.
+func (s *Store) GetStatement(memberID int64) ([]StatementEntry, error) {
+	rows, err := s.db.Query(
+		"SELECT id, amount, description, created_at FROM contributions WHERE member_id = ? ORDER BY created_at, id",
+		memberID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var entries []StatementEntry
+	var balance float64
+	for rows.Next() {
+		var e StatementEntry
+		_ = rows.Scan(&e.ID, &e.Amount, &e.Description, &e.CreatedAt)
+		e.Amount = math.Round(e.Amount*100) / 100
+		balance += e.Amount
+		e.Balance = math.Round(balance*100) / 100
+		entries = append(entries, e)
+	}
+	if entries == nil {
+		entries = []StatementEntry{}
+	}
+	return entries, rows.Err()
+}
+
 func (s *Store) memberExists(id int64) bool {
 	var exists bool
 	_ = s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM members WHERE id = ?)", id).Scan(&exists)

@@ -1,0 +1,23 @@
+{{define "statement.html"}}{{- template "base" . -}}{{end}}
+
+{{define "content"}}
+<h1>Statement for {{.Member.Name}}</h1>
+<p>Member since: {{.Member.CreatedAt}}</p>
+
+<table>
+  <thead>
+    <tr><th>Date</th><th>Description</th><th>Amount</th><th>Balance</th></tr>
+  </thead>
+  <tbody>
+    {{range .Entries}}
+    <tr>
+      <td>{{.CreatedAt}}</td>
+      <td>{{.Description}}</td>
+      <td>{{printf "%.2f" .Amount}}</td>
+      <td>{{printf "%.2f" .Balance}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{if not .Entries}}<p>No contributions yet.</p>{{end}}
+{{end}}
