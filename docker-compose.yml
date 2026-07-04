@@ -2,7 +2,7 @@ services:
   app:
     build: .
     ports:
-      - "8080:8080"
+      - "8082:8080"
     volumes:
       - tally-data:/data
     environment:

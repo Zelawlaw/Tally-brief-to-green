@@ -33,10 +33,17 @@ type Handler struct {
 	templates map[string]*template.Template // page name → parsed template
 }
 
+const (
+	pageMembers       = "members.html"
+	pageContributions = "contributions.html"
+	pageSummary       = "summary.html"
+	pageStatement     = "statement.html"
+)
+
 // New creates a Handler with parsed templates.
 // Each page template is parsed separately with base.html so "content" blocks don't clash.
 func New(s Store, templatesDir string) (*Handler, error) {
-	pages := []string{"members.html", "contributions.html", "summary.html", "statement.html"}
+	pages := []string{pageMembers, pageContributions, pageSummary, pageStatement}
 	tmpls := make(map[string]*template.Template)
 
 	for _, page := range pages {
@@ -110,7 +117,7 @@ func (h *Handler) CreateMember(w http.ResponseWriter, r *http.Request) {
 
 	members, _ := h.Store.GetMembers()
 	w.Header().Set(hdrContentType, contentTypeHTML)
-	_ = h.templates["members.html"].ExecuteTemplate(w, "members-table", members)
+	_ = h.templates[pageMembers].ExecuteTemplate(w, "members-table", members)
 }
 
 // --- GET /members ---
@@ -205,7 +212,7 @@ func (h *Handler) PageMembers(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	h.render(w, "members.html", map[string]any{"Members": members})
+	h.render(w, pageMembers, map[string]any{"Members": members})
 }
 
 func (h *Handler) PageContributions(w http.ResponseWriter, r *http.Request) {
@@ -214,7 +221,7 @@ func (h *Handler) PageContributions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	h.render(w, "contributions.html", map[string]any{"Members": members})
+	h.render(w, pageContributions, map[string]any{"Members": members})
 }
 
 func (h *Handler) PageSummary(w http.ResponseWriter, r *http.Request) {
@@ -223,7 +230,7 @@ func (h *Handler) PageSummary(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	h.render(w, "summary.html", map[string]any{"Summary": s})
+	h.render(w, pageSummary, map[string]any{"Summary": s})
 }
 
 func (h *Handler) MemberStatementJSON(w http.ResponseWriter, r *http.Request) {
@@ -274,7 +281,7 @@ func (h *Handler) PageStatement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.render(w, "statement.html", map[string]any{
+	h.render(w, pageStatement, map[string]any{
 		"Member":  m,
 		"Entries": entries,
 	})
